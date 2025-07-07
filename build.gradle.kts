@@ -36,10 +36,10 @@ dependencies {
 
 // about source and compilation
 java {
-    /*sourceCompatibility = JavaVersion.VERSION_17*/
-    toolchain {
+    sourceCompatibility = JavaVersion.VERSION_17
+    /*toolchain {
         languageVersion = JavaLanguageVersion.of(17) // 회사에서 java 1.8 사용중
-    }
+    }*/
 }
 
 with(extensions.getByType(JacocoPluginExtension::class.java)) {

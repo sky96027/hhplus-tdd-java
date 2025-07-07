@@ -23,15 +23,23 @@ dependencyManagement {
 
 dependencies {
     implementation(libs.spring.boot.starter.web)
+    testImplementation("org.mockito:mockito-core:5.10.0")
     compileOnly(libs.lombok)
     annotationProcessor(libs.lombok)
     annotationProcessor(libs.spring.boot.configuration.processor)
     testImplementation(libs.spring.boot.starter.test)
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.assertj:assertj-core:3.24.2")
 }
 
 // about source and compilation
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
+    /*sourceCompatibility = JavaVersion.VERSION_17*/
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17) // 회사에서 java 1.8 사용중
+    }
 }
 
 with(extensions.getByType(JacocoPluginExtension::class.java)) {

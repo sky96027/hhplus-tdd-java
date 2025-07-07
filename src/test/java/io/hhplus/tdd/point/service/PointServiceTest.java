@@ -2,6 +2,7 @@ package io.hhplus.tdd.point.service;
 
 import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
+import io.hhplus.tdd.point.entity.TransactionType;
 import io.hhplus.tdd.point.entity.UserPoint;
 import io.hhplus.tdd.point.service.PointService;
 
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.mockito.Mock;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -20,11 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("핵심 기능 테스트")
+@DisplayName("Service 행위 기반 테스트, 호출했는지만 검사")
 public class PointServiceTest {
 
     @Mock
-    private UserPointTable uSerPointTable;
+    private UserPointTable userPointTable;
 
     @Mock
     private PointHistoryTable pointHistoryTable;
@@ -34,7 +36,7 @@ public class PointServiceTest {
 
     @BeforeEach
     void setUp() {
-        pointService = new PointService(uSerPointTable, pointHistoryTable);
+        pointService = new PointService(userPointTable, pointHistoryTable);
     }
 
     @Test
@@ -43,7 +45,7 @@ public class PointServiceTest {
         //given
         long userId = 1L;
         UserPoint expected = new UserPoint(userId, 1000L, System.currentTimeMillis());
-        when(uSerPointTable.selectById(userId)).thenReturn(expected);
+        when(userPointTable.selectById(userId)).thenReturn(expected);
 
         //when
         UserPoint actual = pointService.getUserPoint(userId);
@@ -58,15 +60,21 @@ public class PointServiceTest {
     void chargePoint_ShouldIncreaseUserPoint_WhenValidInput() {
         //given
         long userId = 1L;
-        long amount = 1000L;
-        UserPoint expected = new UserPoint(userId, 1000, System.currentTimeMillis());
-        when(uSerPointTable.insertOrUpdate(userId, amount)).thenReturn(expected);
+        long beforeAmount = 2000L;
+        long chargeAmount = 1000L;
+        long afterAmount = beforeAmount + chargeAmount;
+
+        UserPoint beforePoint = new UserPoint(userId, beforeAmount, System.currentTimeMillis());
+        UserPoint afterPoint = new UserPoint(userId, afterAmount, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(beforePoint);
+        when(userPointTable.insertOrUpdate(userId, afterAmount)).thenReturn(afterPoint);
 
         //when
-        UserPoint actual = pointService.chargePoint(userId, amount);
+        UserPoint actual = pointService.chargePoint(userId, chargeAmount);
 
         //then
-        assertThat(actual).isEqualTo(expected);
+        assertThat(actual).isEqualTo(afterPoint);
     }
 
     @Test
@@ -74,14 +82,20 @@ public class PointServiceTest {
     void usePoint_ShouldDecreasePoint_WhenValidInput() {
         //given
         long userId = 1L;
-        long amount = 1000L;
-        UserPoint expected = new UserPoint(userId, -1000, System.currentTimeMillis());
-        when(uSerPointTable.insertOrUpdate(userId, amount)).thenReturn(expected);
+        long beforeAmount = 2000L;
+        long useAmount = 1000L;
+        long afterAmount = beforeAmount - useAmount;
+
+        UserPoint beforePoint = new UserPoint(userId, beforeAmount, System.currentTimeMillis());
+        UserPoint afterPoint = new UserPoint(userId, afterAmount, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(beforePoint);
+        when(userPointTable.insertOrUpdate(userId, afterAmount)).thenReturn(afterPoint);
 
         //when
-        UserPoint actual = pointService.usePoint(userId, amount);
+        UserPoint actual = pointService.usePoint(userId, useAmount);
 
         //then
-        assertThat(actual).isEqualTo(expected);
+        assertThat(actual).isEqualTo(afterPoint);
     }
 }

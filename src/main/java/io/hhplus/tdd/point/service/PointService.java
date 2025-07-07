@@ -5,12 +5,14 @@ import io.hhplus.tdd.database.UserPointTable;
 import io.hhplus.tdd.point.domain.TransactionType;
 import io.hhplus.tdd.point.entity.PointHistory;
 import io.hhplus.tdd.point.entity.UserPoint;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 /**
  * 해당 클래스는 비즈니스 로직을 처리한다.
  */
+@Service
 public class PointService {
 
     private final UserPointTable userPointTable;

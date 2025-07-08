@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import static io.hhplus.tdd.common.PointConstraints.*;
+
 /**
  * 해당 클래스는 비즈니스 로직을 처리한다.
  */
@@ -28,7 +30,7 @@ public class PointService {
      * @param userId 사용자 ID
      * @return 유저의 포인트 잔량
      */
-    public UserPoint getUserPoint(long userId) {
+    public UserPoint selectUserPoint(long userId) {
         return userPointTable.selectById(userId);
     }
 
@@ -37,7 +39,7 @@ public class PointService {
      * @param userId 사용자 ID
      * @return 유저의 포인트 히스토리 리스트
      */
-    public List<PointHistory> getUserHistories(long userId) {
+    public List<PointHistory> selectUserHistories(long userId) {
         return pointHistoryTable.selectAllByUserId(userId);
     }
 
@@ -53,6 +55,14 @@ public class PointService {
 
         // Logic
         long newAmount = beforePoint.point() + amount;
+
+        // 예외 처리
+        if (amount > MAX_POINT_PER_CHARGE) {
+            throw new IllegalArgumentException("1회 충전 한도(" + MAX_POINT_PER_CHARGE + "포인트)를 초과할 수 없습니다.");
+        } else if (newAmount > MAX_POINT) {
+            throw new IllegalArgumentException("최대 보유 가능 포인트(" + MAX_POINT + "포인트)를 초과할 수 없습니다.");
+        }
+
         UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
         pointHistoryTable.insert(userId, amount, TransactionType.CHARGE, afterPoint.updateMillis());
 
@@ -71,6 +81,12 @@ public class PointService {
 
         // Logic
         long newAmount = beforePoint.point() - amount;
+
+        // 예외 처리
+        if (newAmount < MIN_POINT) {
+            throw new IllegalArgumentException("잔액이 부족합니다.");
+        }
+
         UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
         pointHistoryTable.insert(userId, amount, TransactionType.USE, afterPoint.updateMillis());
 

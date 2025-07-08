@@ -17,11 +17,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
+import static io.hhplus.tdd.common.PointConstraints.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+/**
+ * 해당 테스트 클래스는 PointService의 비즈니스 로직을 검증한다.
+ */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Service 행위 기반 테스트, 호출했는지만 검사")
 public class PointServiceTest {
@@ -49,11 +54,14 @@ public class PointServiceTest {
         when(userPointTable.selectById(userId)).thenReturn(expected);
 
         // when
-        UserPoint actual = pointService.getUserPoint(userId);
+        UserPoint actual = pointService.selectUserPoint(userId);
 
         // then
         assertNotNull(actual);
         assertThat(actual).isEqualTo(expected);
+
+        //verify
+        verify(userPointTable, times(1)).selectById(userId);
     }
 
     @Test
@@ -61,21 +69,28 @@ public class PointServiceTest {
     void chargePoint_ShouldIncreaseUserPoint_WhenValidInput() {
         // given
         long userId = 1L;
-        long beforeAmount = 2000L;
-        long chargeAmount = 1000L;
-        long afterAmount = beforeAmount + chargeAmount;
+        long beforeAmount = 1500L;
+        long chargeAmount = 500L;
+        long expectedAmount = beforeAmount + chargeAmount;
 
         UserPoint beforePoint = new UserPoint(userId, beforeAmount, System.currentTimeMillis());
-        UserPoint afterPoint = new UserPoint(userId, afterAmount, System.currentTimeMillis());
+        UserPoint expectedPoint = new UserPoint(userId, expectedAmount, System.currentTimeMillis());
 
         when(userPointTable.selectById(userId)).thenReturn(beforePoint);
-        when(userPointTable.insertOrUpdate(userId, afterAmount)).thenReturn(afterPoint);
+        when(userPointTable.insertOrUpdate(userId, expectedAmount)).thenReturn(expectedPoint);
+        when(pointHistoryTable.insert(userId, chargeAmount, TransactionType.CHARGE, expectedPoint.updateMillis()))
+                .thenReturn(new PointHistory(1L, userId, chargeAmount, TransactionType.CHARGE, expectedPoint.updateMillis()));
 
         // when
         UserPoint actual = pointService.chargePoint(userId, chargeAmount);
 
         // then
-        assertThat(actual).isEqualTo(afterPoint);
+        assertThat(actual).isEqualTo(expectedPoint);
+
+        //verify
+        verify(userPointTable, times(1)).selectById(userId);
+        verify(userPointTable, times(1)).insertOrUpdate(userId, expectedAmount);
+        verify(pointHistoryTable, times(1)).insert(userId, chargeAmount, TransactionType.CHARGE, expectedPoint.updateMillis());
     }
 
     @Test
@@ -83,28 +98,28 @@ public class PointServiceTest {
     void usePoint_ShouldDecreasePoint_WhenValidInput() {
         // given
         long userId = 1L;
-        long beforeAmount = 2000L;
-        long useAmount = 1000L;
-        long afterAmount = beforeAmount - useAmount;
+        long beforeAmount = 1500L;
+        long useAmount = 500L;
+        long expectedAmount = beforeAmount - useAmount;
 
         UserPoint beforePoint = new UserPoint(userId, beforeAmount, System.currentTimeMillis());
-        UserPoint afterPoint = new UserPoint(userId, afterAmount, System.currentTimeMillis());
+        UserPoint expectedPoint = new UserPoint(userId, expectedAmount, System.currentTimeMillis());
 
         when(userPointTable.selectById(userId)).thenReturn(beforePoint);
-        when(userPointTable.insertOrUpdate(userId, afterAmount)).thenReturn(afterPoint);
-        when(pointHistoryTable.insert(userId, useAmount, TransactionType.USE, afterPoint.updateMillis()))
-                .thenReturn(new PointHistory(1L, userId, useAmount, TransactionType.USE, afterPoint.updateMillis()));
+        when(userPointTable.insertOrUpdate(userId, expectedAmount)).thenReturn(expectedPoint);
+        when(pointHistoryTable.insert(userId, useAmount, TransactionType.USE, expectedPoint.updateMillis()))
+                .thenReturn(new PointHistory(1L, userId, useAmount, TransactionType.USE, expectedPoint.updateMillis()));
 
         // when
         UserPoint actual = pointService.usePoint(userId, useAmount);
 
         // then
-        assertThat(actual).isEqualTo(afterPoint);
+        assertThat(actual).isEqualTo(expectedPoint);
 
         // verify
         verify(userPointTable, times(1)).selectById(userId);
-        verify(userPointTable, times(1)).insertOrUpdate(userId, afterAmount);
-        verify(pointHistoryTable, times(1)).insert(userId, useAmount, TransactionType.USE, afterPoint.updateMillis());
+        verify(userPointTable, times(1)).insertOrUpdate(userId, expectedAmount);
+        verify(pointHistoryTable, times(1)).insert(userId, useAmount, TransactionType.USE, expectedPoint.updateMillis());
     }
 
     @Test
@@ -119,13 +134,104 @@ public class PointServiceTest {
         when(pointHistoryTable.selectAllByUserId(userId)).thenReturn(expected);
 
         // when
-        List<PointHistory> actual = pointService.getUserHistories(userId);
+        List<PointHistory> actual = pointService.selectUserHistories(userId);
 
         // then
         assertThat(actual).isEqualTo(expected);
 
         // verify
         verify(pointHistoryTable, times(1)).selectAllByUserId(userId);
+    }
+
+    @Test
+    @DisplayName("사용자의 포인트 잔량이 부족할 때 예외를 발생시킨다.")
+    void usePoint_ShouldThrowException_WhenInsufficientPoint(){
+        // given
+        long userId = 1L;
+        long beforeAmount = 2000L;
+        long useAmount = 2001L;
+
+        UserPoint beforePoint = new UserPoint(userId, beforeAmount, System.currentTimeMillis());
+        when(userPointTable.selectById(userId)).thenReturn(beforePoint);
+
+        // when & then
+        assertThatThrownBy(() -> pointService.usePoint(userId, useAmount))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("잔액이 부족합니다.");
+
+        // verify
+        verify(userPointTable, times(1)).selectById(userId);
+        verify(userPointTable, never()).insertOrUpdate(anyLong(), anyLong());
+        verify(pointHistoryTable, never()).insert(anyLong(), anyLong(), any(), anyLong());
+    }
+
+    @Test
+    @DisplayName("사용자가 1회 한도 이상으로 충전을 요청할 때 예외를 발생시킨다.")
+    void chargePoint_ShouldThrowException_WhenExceedsChargeLimit(){
+        // given
+        long userId = 1L;
+        long chargeAmount = 100_001L;
+
+        when(userPointTable.selectById(userId)).thenReturn(
+                new UserPoint(userId, 100_000L, System.currentTimeMillis())
+        );
+
+        // when & then
+        assertThatThrownBy(() -> pointService.chargePoint(userId, chargeAmount))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("1회 충전 한도(" + MAX_POINT_PER_CHARGE + "포인트)를 초과할 수 없습니다.");
+
+        // verify
+        verify(userPointTable, times(1)).selectById(userId);
+        verify(userPointTable, never()).insertOrUpdate(anyLong(), anyLong());
+        verify(pointHistoryTable, never()).insert(anyLong(), anyLong(), any(), anyLong());
+    }
+
+    @Test
+    @DisplayName("사용자가 충전 요청 시 충전 후 잔량이 최대 보유량을 초과할 때 예외를 발생시킨다.")
+    void chargePoint_ShouldThrowException_WhenExceedsMaxTotalPoint() {
+        // given
+        long userId = 1L;
+        long beforeAmount = 950_000L;
+        long chargeAmount = 50_001L;
+
+        UserPoint beforePoint = new UserPoint(userId, beforeAmount, System.currentTimeMillis());
+        when(userPointTable.selectById(userId)).thenReturn(beforePoint);
+
+        // when & then
+        assertThatThrownBy(() -> pointService.chargePoint(userId, chargeAmount))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("최대 보유 가능 포인트(" + MAX_POINT + "포인트)를 초과할 수 없습니다.");
+
+        // verify
+        verify(userPointTable, times(1)).selectById(userId);
+        verify(userPointTable, never()).insertOrUpdate(anyLong(), anyLong());
+        verify(pointHistoryTable, never()).insert(anyLong(), anyLong(), any(), anyLong());
+
+    }
+
+    @Test
+    @DisplayName("충전 후 잔량이 최대 보유량과 정확히 같을 경우 성공한다. (1회 최대 충전량과 최대 보유량의 Edge Test)")
+    void chargePoint_ShouldSucceed_WhenTotalPointEqualsMax() {
+        // given
+        long userId = 1L;
+        long beforeAmount = 900_000L;
+        long chargeAmount = 100_000L;
+        long expectedAmount = 1_000_000L;
+
+        UserPoint beforePoint = new UserPoint(userId, beforeAmount, System.currentTimeMillis());
+        UserPoint afterPoint = new UserPoint(userId, expectedAmount, System.currentTimeMillis());
+
+        when(userPointTable.selectById(userId)).thenReturn(beforePoint);
+        when(userPointTable.insertOrUpdate(userId, expectedAmount)).thenReturn(afterPoint);
+        when(pointHistoryTable.insert(anyLong(), anyLong(), any(), anyLong()))
+                .thenReturn(new PointHistory(1L, userId, chargeAmount, TransactionType.CHARGE, afterPoint.updateMillis()));
+
+        // when
+        UserPoint actual = pointService.chargePoint(userId, chargeAmount);
+
+        // then
+        assertThat(actual).isEqualTo(afterPoint);
     }
 
 

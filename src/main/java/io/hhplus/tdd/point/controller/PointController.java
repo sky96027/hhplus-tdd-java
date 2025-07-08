@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 해당 클래스는 HTTP 입출력을 처리한다.
+ */
 @RestController
 @RequestMapping("/point")
 public class PointController {
@@ -28,38 +31,38 @@ public class PointController {
     public UserPoint selectUserPoint(
             @PathVariable long id
     ) {
-        return new UserPoint(0, 0, 0);
+        return pointService.selectUserPoint(id);
     }
 
     /**
      * TODO - 특정 유저의 포인트 충전/이용 내역을 조회하는 기능을 작성해주세요.
      */
-    @GetMapping("{id}/histories")
+    @GetMapping("histories/{id}")
     public List<PointHistory> selectUserHistories(
             @PathVariable long id
     ) {
-        return List.of();
+        return pointService.selectUserHistories(id);
     }
 
     /**
      * TODO - 특정 유저의 포인트를 충전하는 기능을 작성해주세요.
      */
-    @PatchMapping("{id}/charge")
+    @PatchMapping("charge/{id}")
     public UserPoint updateUserCharge(
             @PathVariable long id,
             @RequestBody long amount
     ) {
-        return new UserPoint(0, 0, 0);
+        return pointService.chargePoint(id, amount);
     }
 
     /**
      * TODO - 특정 유저의 포인트를 사용하는 기능을 작성해주세요.
      */
-    @PatchMapping("{id}/use")
+    @PatchMapping("use/{id}")
     public UserPoint updateUserUse(
             @PathVariable long id,
             @RequestBody long amount
     ) {
-        return new UserPoint(0, 0, 0);
+        return pointService.usePoint(id, amount);
     }
 }

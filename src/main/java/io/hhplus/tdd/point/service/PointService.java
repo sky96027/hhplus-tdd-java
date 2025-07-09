@@ -1,15 +1,15 @@
 package io.hhplus.tdd.point.service;
 
+import io.hhplus.tdd.common.exception.UserNotFoundException;
 import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
 import io.hhplus.tdd.point.domain.TransactionType;
 import io.hhplus.tdd.point.entity.PointHistory;
 import io.hhplus.tdd.point.entity.UserPoint;
+import io.hhplus.tdd.point.validation.PointValidator;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-
-import static io.hhplus.tdd.common.PointConstraints.*;
 
 /**
  * 해당 클래스는 비즈니스 로직을 처리한다.
@@ -25,13 +25,21 @@ public class PointService {
         this.pointHistoryTable = pointHistoryTable;
     }
 
+    // 생성자에 포함시키면 테스트할 수 있다는 장점이 있으나 단순 유틸이기에 직접 생성
+    private final PointValidator pointValidator = new PointValidator();
+
     /**
      * 포인트 조회
      * @param userId 사용자 ID
      * @return 유저의 포인트 잔량
      */
     public UserPoint selectUserPoint(long userId) {
-        return userPointTable.selectById(userId);
+        UserPoint userPoint = userPointTable.selectById(userId);
+        if(userPoint == null) {
+            throw new UserNotFoundException();
+        }
+
+        return userPoint;
     }
 
     /**
@@ -57,11 +65,7 @@ public class PointService {
         long newAmount = beforePoint.point() + amount;
 
         // 예외 처리
-        if (amount > MAX_POINT_PER_CHARGE) {
-            throw new IllegalArgumentException("1회 충전 한도(" + MAX_POINT_PER_CHARGE + "포인트)를 초과할 수 없습니다.");
-        } else if (newAmount > MAX_POINT) {
-            throw new IllegalArgumentException("최대 보유 가능 포인트(" + MAX_POINT + "포인트)를 초과할 수 없습니다.");
-        }
+        pointValidator.validateChargeAmount(amount, newAmount);
 
         UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
         pointHistoryTable.insert(userId, amount, TransactionType.CHARGE, afterPoint.updateMillis());
@@ -83,9 +87,7 @@ public class PointService {
         long newAmount = beforePoint.point() - amount;
 
         // 예외 처리
-        if (newAmount < MIN_POINT) {
-            throw new IllegalArgumentException("잔액이 부족합니다.");
-        }
+        pointValidator.validateUseAmount(amount, newAmount);
 
         UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
         pointHistoryTable.insert(userId, amount, TransactionType.USE, afterPoint.updateMillis());

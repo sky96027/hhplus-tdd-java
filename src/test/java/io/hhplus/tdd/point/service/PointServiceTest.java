@@ -1,27 +1,25 @@
 package io.hhplus.tdd.point.service;
 
+import io.hhplus.tdd.common.exception.UserNotFoundException;
 import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
 import io.hhplus.tdd.point.domain.TransactionType;
 import io.hhplus.tdd.point.entity.PointHistory;
 import io.hhplus.tdd.point.entity.UserPoint;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
 import org.mockito.Mock;
-
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
-import static io.hhplus.tdd.common.PointConstraints.*;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static io.hhplus.tdd.common.PointConstraints.MAX_POINT;
+import static io.hhplus.tdd.common.PointConstraints.MAX_POINT_PER_CHARGE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -157,7 +155,7 @@ public class PointServiceTest {
         // when & then
         assertThatThrownBy(() -> pointService.usePoint(userId, useAmount))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessage("잔액이 부족합니다.");
+            .hasMessage("보유 포인트(" + beforeAmount + "포인트)보다 많은 금액을 사용할 수 없습니다.");
 
         // verify
         verify(userPointTable, times(1)).selectById(userId);
@@ -233,6 +231,41 @@ public class PointServiceTest {
         // then
         assertThat(actual).isEqualTo(afterPoint);
     }
+
+    @Test
+    @DisplayName("유저가 존재하지 않으면 UserNotFoundException을 던진다")
+    void selectUserPoint_ShouldThrow_WhenUserNotFound() {
+        // given
+        long invalidUserId = 9999L;
+        when(userPointTable.selectById(invalidUserId)).thenReturn(null);
+
+        // when & then
+        assertThatThrownBy(() -> pointService.selectUserPoint(invalidUserId))
+                .isInstanceOf(UserNotFoundException.class)
+                .hasMessage("해당 사용자를 찾을 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("충전량이 0일 때 예외를 발생시킨다.")
+    void chargePoint_ShouldThrow_WhenPointZero() {
+        // given
+        long userId = 1L;
+        long chargeAmount = 0L;
+        long existingPoint = 5000L;
+
+        when(userPointTable.selectById(userId)).thenReturn(new UserPoint(userId, existingPoint, System.currentTimeMillis()));
+
+        // when & then
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            pointService.chargePoint(userId, chargeAmount);
+        });
+
+        assertThatThrownBy(() -> pointService.chargePoint(userId, chargeAmount))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("0보다 큰 금액을 입력해야 합니다.");
+    }
+
+
 
 
 }

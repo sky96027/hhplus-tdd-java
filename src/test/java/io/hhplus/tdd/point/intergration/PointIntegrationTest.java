@@ -2,7 +2,6 @@ package io.hhplus.tdd.point.intergration;
 
 import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
-import io.hhplus.tdd.point.entity.UserPoint;
 import io.hhplus.tdd.point.service.PointService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
-import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -25,12 +23,6 @@ public class PointIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private UserPointTable userPointTable;
-
-    @Autowired
-    private PointHistoryTable pointHistoryTable;
-
-    @Autowired
     private PointService pointService;
 
     @Test
@@ -38,11 +30,11 @@ public class PointIntegrationTest {
     void chargePoint_ShouldIncreaseUserPoint_WhenValidInput() throws Exception {
         // given
         long userId = 1L;
-        long initialPoint = 1500L;
+        long initialAmount = 1500L;
         long chargeAmount = 500L;
         long expectedAmount = 2000L;
 
-        pointService.chargePoint(userId, initialPoint);
+        pointService.chargePoint(userId, initialAmount);
 
         // when & then
         mockMvc.perform(patch("/point/charge/{id}", userId)
@@ -61,11 +53,11 @@ public class PointIntegrationTest {
     void usePoint_ShouldDecreaseUserPoint_WhenValidInput() throws Exception {
         // given
         long userId = 1L;
-        long initialPoint = 1500L;
+        long initialAmount = 1500L;
         long useAmount = 1000L;
         long expectedAmount = 500L;
 
-        pointService.chargePoint(userId, initialPoint);
+        pointService.chargePoint(userId, initialAmount);
 
         // when & then
         mockMvc.perform(patch("/point/use/{id}", userId)
@@ -78,4 +70,6 @@ public class PointIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.point").value(expectedAmount));
     }
+
+
 }

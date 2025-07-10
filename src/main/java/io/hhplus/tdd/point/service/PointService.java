@@ -10,6 +10,8 @@ import io.hhplus.tdd.point.validation.PointValidator;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 해당 클래스는 비즈니스 로직을 처리한다.
@@ -19,6 +21,9 @@ public class PointService {
 
     private final UserPointTable userPointTable;
     private final PointHistoryTable pointHistoryTable;
+
+    // 동시성 처리를 위한 락 생성
+    private final ConcurrentHashMap<Long, ReentrantLock> lockMap = new ConcurrentHashMap<>();
 
     public PointService(UserPointTable userPointTable, PointHistoryTable pointHistoryTable) {
         this.userPointTable = userPointTable;
@@ -58,20 +63,28 @@ public class PointService {
      * @return 충전 후 포인트 잔량
      */
     public UserPoint chargePoint(long userId, long amount) {
-        // 충전 전 포인트
-        UserPoint beforePoint = userPointTable.selectById(userId);
+        ReentrantLock lock = lockMap.computeIfAbsent(userId, k -> new ReentrantLock());
+        lock.lock();
 
-        // Logic
-        long newAmount = beforePoint.point() + amount;
+        try {
+            // 충전 전 포인트
+            UserPoint beforePoint = userPointTable.selectById(userId);
 
-        // 예외 처리
-        pointValidator.validateChargeAmount(amount, newAmount);
+            // Logic
+            long newAmount = beforePoint.point() + amount;
 
-        UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
-        pointHistoryTable.insert(userId, amount, TransactionType.CHARGE, afterPoint.updateMillis());
+            // 예외 처리
+            pointValidator.validateChargeAmount(amount, newAmount);
 
-        return afterPoint;
+            UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
+            pointHistoryTable.insert(userId, amount, TransactionType.CHARGE, afterPoint.updateMillis());
+
+            return afterPoint;
+        } finally {
+            lock.unlock();
+        }
     }
+
 
     /**
      * 포인트 사용
@@ -80,18 +93,25 @@ public class PointService {
      * @return 사용 후 포인트 잔량
      */
     public UserPoint usePoint(long userId, long amount) {
-        // 사용 전 포인트
-        UserPoint beforePoint = userPointTable.selectById(userId);
+        ReentrantLock lock = lockMap.computeIfAbsent(userId, k -> new ReentrantLock());
+        lock.lock();
 
-        // Logic
-        long newAmount = beforePoint.point() - amount;
+        try {
+            // 사용 전 포인트
+            UserPoint beforePoint = userPointTable.selectById(userId);
 
-        // 예외 처리
-        pointValidator.validateUseAmount(amount, newAmount);
+            // Logic
+            long newAmount = beforePoint.point() - amount;
 
-        UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
-        pointHistoryTable.insert(userId, amount, TransactionType.USE, afterPoint.updateMillis());
+            // 예외 처리
+            pointValidator.validateUseAmount(amount, newAmount);
 
-        return afterPoint;
+            UserPoint afterPoint = userPointTable.insertOrUpdate(userId, newAmount);
+            pointHistoryTable.insert(userId, amount, TransactionType.USE, afterPoint.updateMillis());
+
+            return afterPoint;
+        } finally {
+            lock.unlock();
+        }
     }
 }

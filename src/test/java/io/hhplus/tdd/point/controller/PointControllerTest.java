@@ -32,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(SpringExtension.class)
 @WebMvcTest(PointController.class)
 @Import(GlobalExceptionHandler.class)
+@DisplayName("컨트롤러 레이어 테스트 HTTP 요청에 대해 테스트")
 public class PointControllerTest {
 
     @Autowired
@@ -44,7 +45,7 @@ public class PointControllerTest {
 
     @Test
     @DisplayName("사용자의 ID가 담긴 HTTP 요청을 받으면 사용자의 포인트를 조회")
-    void selectUserPoint_ShouldUserPoint_whenValidInput() throws Exception {
+    void selectUserPoint_ShouldUserPoint_WhenValidInput() throws Exception {
         // given
         long userId = 1L;
         UserPoint expected = new UserPoint (userId, 1000L, System.currentTimeMillis());
@@ -62,7 +63,7 @@ public class PointControllerTest {
 
     @Test
     @DisplayName("사용자의 ID가 담긴 HTTP 요청을 받으면 사용자의 포인트 이력을 조회한다.")
-    void selectUserHistories_ShouldUserHistories_whenValidInput() throws Exception {
+    void selectUserHistories_ShouldUserHistories_WhenValidInput() throws Exception {
         // given
         long userId = 1L;
         List<PointHistory> expected = List.of(
@@ -82,7 +83,7 @@ public class PointControllerTest {
 
     @Test
     @DisplayName("사용자의 ID와 충전량이 담긴 HTTP 요청을 받으면 사용자의 포인트에서 충전량을 추가한다.")
-    void chargePoint_ShouldIncreaseUserPoint_whenValidInput() throws Exception {
+    void chargePoint_ShouldIncreaseUserPoint_WhenValidInput() throws Exception {
         // given
         long userId = 1L;
         long chargeAmount = 500L;
@@ -101,7 +102,7 @@ public class PointControllerTest {
 
     @Test
     @DisplayName("사용자의 ID와 사용량이 담긴 HTTP 요청을 받으면 사용자의 포인트에서 사용량을 차감한다.")
-    void usePoint_ShouldDecreaseUserPoint_whenValidInput() throws Exception {
+    void usePoint_ShouldDecreaseUserPoint_WhenValidInput() throws Exception {
         // given
         long userId = 1L;
         long useAmount = 1500L;
